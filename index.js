@@ -3,11 +3,38 @@ const TelegramBot = require('node-telegram-bot-api');
 // --- CONFIGURATION ---
 const token = process.env.BOT_TOKEN; 
 const adminId = parseInt(process.env.ADMIN_ID); 
-const mainBotUser = 'Crypt0Alliance_bot'; 
+const channelId = process.env.CHANNEL_ID; 
+const supportBotUser = 'TON_BOT_SUPPORT_USERNAME'; // Remplace par le pseudo de CE bot (ex: EliteSupport_bot)
+const mainBotUser = 'Crypt0Alliance_bot'; // Ton application principale
 
 const bot = new TelegramBot(token, {polling: true});
 
-// --- CLAVIER PRINCIPAL (Menu du Bot) ---
+// --- TEXTE DE L'ANNONCE AUTOMATIQUE (CANAL) ---
+const autoAnnonceText = `
+🏆 *BIENVENUE SUR INVEST&CO PRIVÉ* 🏆
+
+L'accès au **Terminal Elite** est officiellement ouvert. 
+
+Pour commencer à générer des profits et configurer votre compte, vous devez suivre notre guide interactif.
+
+🔹 *Ce que vous allez trouver :*
+• Guide d'achat Solana (SOL) rapide.
+• Procédure de dépôt sécurisée (Mémo).
+• Accès direct au support 24/7.
+
+👇 **Cliquez sur le bouton ci-dessous pour lancer votre configuration.**
+`;
+
+const autoAnnonceButtons = {
+    parse_mode: 'Markdown',
+    reply_markup: {
+        inline_keyboard: [
+            [{ text: "🚀 DÉMARRER MON GUIDE PERSO", url: `https://t.me/${supportBotUser}?start=guide` }]
+        ]
+    }
+};
+
+// --- MENU PRIVÉ DU BOT (Support/Guide) ---
 const mainMenu = {
     parse_mode: 'Markdown',
     reply_markup: {
@@ -21,68 +48,71 @@ const mainMenu = {
     }
 };
 
-// --- LOGIQUE DE RÉPONSE ---
+// --- ENVOI AUTOMATIQUE AU DÉMARRAGE ---
+bot.sendMessage(channelId, autoAnnonceText, autoAnnonceButtons)
+    .then(() => console.log("✅ Annonce automatique publiée dans le canal !"))
+    .catch((err) => console.log("❌ Erreur d'envoi automatique :", err.message));
+
+// --- LOGIQUE DES MESSAGES PRIVÉS ---
 bot.on('message', (msg) => {
     const chatId = msg.chat.id;
     const text = msg.text;
 
-    // Si c'est l'utilisateur qui écrit (pas une commande) -> On crée un TICKET pour l'Admin
-    if (text && !text.startsWith('/') && chatId !== adminId) {
-        bot.sendMessage(adminId, `🎫 *NOUVEAU TICKET SUPPORT*\n\n*De:* ${msg.from.first_name} (@${msg.from.username || 'N/A'})\n*ID:* \`${chatId}\`\n\n*Message:* ${text}`, {
+    if (!text) return;
+
+    // Gestion du /start
+    if (text.startsWith('/start')) {
+        bot.sendMessage(chatId, `👋 *Bienvenue sur votre Assistant Elite.*\n\nJe vais vous guider pas à pas pour vos investissements sur le Terminal.`, mainMenu);
+        return;
+    }
+
+    // Gestion du Support (Tickets)
+    if (chatId !== adminId && msg.chat.type === 'private') {
+        bot.sendMessage(adminId, `🎫 *NOUVEAU TICKET*\n*De:* ${msg.from.first_name}\n*ID:* \`${chatId}\`\n\n*Message:* ${text}`, {
             parse_mode: 'Markdown',
             reply_markup: {
                 inline_keyboard: [[{ text: "✍️ RÉPONDRE", callback_data: `reply_${chatId}` }]]
             }
         });
-        bot.sendMessage(chatId, "✅ *Message envoyé au support.*\nUn administrateur va vous répondre très rapidement ici-même.", { parse_mode: 'Markdown' });
-        return;
-    }
-
-    // Commande /start
-    if (text === '/start') {
-        bot.sendMessage(chatId, `👋 *Bienvenue sur le Support Elite.*\n\nQue souhaitez-vous faire aujourd'hui ?`, mainMenu);
+        bot.sendMessage(chatId, "✅ *Message reçu.* Le support va vous répondre ici.");
     }
 });
 
-// --- GESTION DES BOUTONS ---
-bot.on('callback_query', (query) => {
-    const chatId = query.message.chat.id;
-    const data = query.data;
-
-    if (data === 'menu_buy') {
-        const buyText = "💳 *OÙ ACHETER DU SOLANA (SOL) ?*\n\nVoici les plateformes les plus fiables pour acheter par Carte ou Virement :\n\n• [Binance](https://www.binance.com) (Recommandé)\n• [Coinbase](https://www.coinbase.com)\n• [Kraken](https://www.kraken.com)\n\n*Une fois vos SOL achetés, revenez ici pour le guide de dépôt.*";
-        bot.editMessageText(buyText, { chat_id: chatId, message_id: query.message.message_id, parse_mode: 'Markdown', disable_web_page_preview: true, reply_markup: mainMenu.reply_markup });
-    }
-
-    if (data === 'menu_deposit') {
-        const depText = "📥 *PROCÉDURE DE DÉPÔT*\n\n1️⃣ Allez sur l'Application Elite.\n2️⃣ Cliquez sur *DÉPÔT*.\n3️⃣ Copiez l'adresse Solana affichée.\n4️⃣ *TRÈS IMPORTANT* : Copiez et collez le **MÉMO UNIQUE**.\n\n⚠️ *Sans le MÉMO, le système ne pourra pas identifier votre virement et vos fonds seront bloqués.*";
-        bot.editMessageText(depText, { chat_id: chatId, message_id: query.message.message_id, parse_mode: 'Markdown', reply_markup: mainMenu.reply_markup });
-    }
-
-    if (data === 'menu_earn') {
-        const earnText = "💰 *GÉRER VOS PROFITS*\n\n• *Investir :* Vos fonds déposés apparaissent dans votre 'Balance'. Choisissez un projet actif pour générer des gains.\n• *Retrait :* Allez dans l'onglet 'Retrait', entrez votre adresse Solana personnelle et validez.\n\n*Délai de traitement : Instantané à 1h.*";
-        bot.editMessageText(earnText, { chat_id: chatId, message_id: query.message.message_id, parse_mode: 'Markdown', reply_markup: mainMenu.reply_markup });
-    }
-
-    if (data === 'menu_support') {
-        bot.sendMessage(chatId, "📩 *Écrivez votre message ci-dessous...*\n\nDécrivez votre problème avec précision (capture d'écran possible). L'équipe Elite vous répondra ici.");
-    }
-
-    // Système de réponse Admin
-    if (data.startsWith('reply_')) {
-        const userId = data.split('_')[1];
-        bot.sendMessage(adminId, `Tapez votre réponse pour l'utilisateur \`${userId}\` sous la forme :\n\n\`/rep ${userId} Votre message ici\``);
+// --- COMMANDES ADMIN ---
+bot.onText(/\/annonce (.+)/, (msg, match) => {
+    if (msg.from.id === adminId) {
+        bot.sendMessage(channelId, `🔔 *ANNONCE ELITE*\n\n${match[1]}`, {
+            parse_mode: 'Markdown',
+            reply_markup: {
+                inline_keyboard: [[{ text: "🚀 OUVRIR LE TERMINAL", url: `https://t.me/${mainBotUser}` }]]
+            }
+        });
     }
 });
 
-// Commande pour l'admin pour répondre aux tickets
 bot.onText(/\/rep (\d+) (.+)/, (msg, match) => {
     if (msg.from.id === adminId) {
-        const userId = match[1];
-        const response = match[2];
-        bot.sendMessage(userId, `👨‍💻 *RÉPONSE DU SUPPORT ELITE :*\n\n${response}`, { parse_mode: 'Markdown' });
-        bot.sendMessage(adminId, "✅ Réponse envoyée !");
+        bot.sendMessage(match[1], `👨‍💻 *RÉPONSE DU SUPPORT :*\n\n${match[2]}`, { parse_mode: 'Markdown' });
+        bot.sendMessage(adminId, "✅ Réponse envoyée.");
     }
 });
 
-console.log("🚀 Bot Support Elite v2 (Optimisé) en ligne !");
+// --- CALLBACKS (Boutons) ---
+bot.on('callback_query', (query) => {
+    const chatId = query.message.chat.id;
+    if (query.data === 'menu_buy') {
+        bot.sendMessage(chatId, "💳 *ACHAT SOLANA :*\nUtilisez [Binance](https://www.binance.com).", { parse_mode: 'Markdown', disable_web_page_preview: true });
+    }
+    if (query.data === 'menu_deposit') {
+        bot.sendMessage(chatId, "📥 *DÉPÔT :*\nCopiez l'adresse ET le MÉMO dans l'App. Très important !", { parse_mode: 'Markdown' });
+    }
+    if (query.data === 'menu_support') {
+        bot.sendMessage(chatId, "📩 Écrivez votre message ci-dessous...");
+    }
+    if (query.data.startsWith('reply_')) {
+        bot.sendMessage(adminId, `Tapez : \`/rep ${query.data.split('_')[1]} votre message\``);
+    }
+    bot.answerCallbackQuery(query.id);
+});
+
+console.log("🚀 Bot Élite prêt !");
