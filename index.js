@@ -4,12 +4,12 @@ const TelegramBot = require('node-telegram-bot-api');
 const token = process.env.BOT_TOKEN; 
 const adminId = parseInt(process.env.ADMIN_ID); 
 const channelId = process.env.CHANNEL_ID; 
-const supportBotUser = 'TON_BOT_SUPPORT_USERNAME'; // Remplace par le pseudo de CE bot (ex: EliteSupport_bot)
+const supportBotUser = 'Investcoelite_bot'; // Ton pseudo de bot mis à jour
 const mainBotUser = 'Crypt0Alliance_bot'; // Ton application principale
 
 const bot = new TelegramBot(token, {polling: true});
 
-// --- TEXTE DE L'ANNONCE AUTOMATIQUE (CANAL) ---
+// --- TEXTE DE L'ANNONCE AUTOMATIQUE (DANS LE CANAL) ---
 const autoAnnonceText = `
 🏆 *BIENVENUE SUR INVEST&CO PRIVÉ* 🏆
 
@@ -34,7 +34,7 @@ const autoAnnonceButtons = {
     }
 };
 
-// --- MENU PRIVÉ DU BOT (Support/Guide) ---
+// --- MENU PRIVÉ DU BOT (Guide & Support) ---
 const mainMenu = {
     parse_mode: 'Markdown',
     reply_markup: {
@@ -50,7 +50,7 @@ const mainMenu = {
 
 // --- ENVOI AUTOMATIQUE AU DÉMARRAGE ---
 bot.sendMessage(channelId, autoAnnonceText, autoAnnonceButtons)
-    .then(() => console.log("✅ Annonce automatique publiée dans le canal !"))
+    .then(() => console.log("✅ Annonce de bienvenue publiée !"))
     .catch((err) => console.log("❌ Erreur d'envoi automatique :", err.message));
 
 // --- LOGIQUE DES MESSAGES PRIVÉS ---
@@ -66,7 +66,7 @@ bot.on('message', (msg) => {
         return;
     }
 
-    // Gestion du Support (Tickets)
+    // Gestion du Support (Tickets vers l'Admin)
     if (chatId !== adminId && msg.chat.type === 'private') {
         bot.sendMessage(adminId, `🎫 *NOUVEAU TICKET*\n*De:* ${msg.from.first_name}\n*ID:* \`${chatId}\`\n\n*Message:* ${text}`, {
             parse_mode: 'Markdown',
@@ -79,6 +79,8 @@ bot.on('message', (msg) => {
 });
 
 // --- COMMANDES ADMIN ---
+
+// Pour faire une annonce manuelle : /annonce Votre message
 bot.onText(/\/annonce (.+)/, (msg, match) => {
     if (msg.from.id === adminId) {
         bot.sendMessage(channelId, `🔔 *ANNONCE ELITE*\n\n${match[1]}`, {
@@ -90,6 +92,7 @@ bot.onText(/\/annonce (.+)/, (msg, match) => {
     }
 });
 
+// Pour répondre à un utilisateur : /rep ID_USER Votre message
 bot.onText(/\/rep (\d+) (.+)/, (msg, match) => {
     if (msg.from.id === adminId) {
         bot.sendMessage(match[1], `👨‍💻 *RÉPONSE DU SUPPORT :*\n\n${match[2]}`, { parse_mode: 'Markdown' });
@@ -97,22 +100,23 @@ bot.onText(/\/rep (\d+) (.+)/, (msg, match) => {
     }
 });
 
-// --- CALLBACKS (Boutons) ---
+// --- CALLBACKS (Boutons interactifs) ---
 bot.on('callback_query', (query) => {
     const chatId = query.message.chat.id;
+    
     if (query.data === 'menu_buy') {
-        bot.sendMessage(chatId, "💳 *ACHAT SOLANA :*\nUtilisez [Binance](https://www.binance.com).", { parse_mode: 'Markdown', disable_web_page_preview: true });
+        bot.sendMessage(chatId, "💳 *ACHAT SOLANA :*\n\nNous recommandons [Binance](https://www.binance.com) pour sa rapidité.\n1. Achetez vos SOL.\n2. Envoyez-les vers l'adresse du Terminal.", { parse_mode: 'Markdown', disable_web_page_preview: true });
     }
     if (query.data === 'menu_deposit') {
-        bot.sendMessage(chatId, "📥 *DÉPÔT :*\nCopiez l'adresse ET le MÉMO dans l'App. Très important !", { parse_mode: 'Markdown' });
+        bot.sendMessage(chatId, "📥 *DÉPÔT & MÉMO :*\n\nDans l'application, copiez l'adresse ET le MÉMO UNIQUE. Sans ce mémo, vos fonds ne seront pas reconnus par le système !", { parse_mode: 'Markdown' });
     }
     if (query.data === 'menu_support') {
-        bot.sendMessage(chatId, "📩 Écrivez votre message ci-dessous...");
+        bot.sendMessage(chatId, "📩 *Support en ligne :*\nÉcrivez votre question ci-dessous, un administrateur vous répondra directement.");
     }
     if (query.data.startsWith('reply_')) {
-        bot.sendMessage(adminId, `Tapez : \`/rep ${query.data.split('_')[1]} votre message\``);
+        bot.sendMessage(adminId, `Utilisez la commande :\n\`/rep ${query.data.split('_')[1]} votre message\``);
     }
     bot.answerCallbackQuery(query.id);
 });
 
-console.log("🚀 Bot Élite prêt !");
+console.log("🚀 Bot Élite @Investcoelite_bot opérationnel !");
