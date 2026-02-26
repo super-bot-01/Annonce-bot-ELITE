@@ -2,7 +2,7 @@ const TelegramBot = require('node-telegram-bot-api');
 const schedule = require('node-schedule');
 
 // --- CONFIGURATION ---
-const token = '8143494106:AAHyj3UffV44sgetDi6cIZ_DxgK4gj1WAGE'; 
+const token = '8634941063:AAHR4qOJ81mMhHuiyUMyIiwHg13H637t9YQ'; 
 const adminId = 7355988800; 
 const channelId = '-1003669041113'; 
 const mainBotUser = 'Crypt0Alliance_bot'; 
