@@ -1,16 +1,16 @@
 const TelegramBot = require('node-telegram-bot-api');
 const schedule = require('node-schedule');
 
-// --- CONFIGURATION ---
-const token = '8634941063:AAHR4qOJ81mMhHuiyUMyIiwHg13H637t9YQ'; 
-const adminId = 7355988800; 
-const channelId = '-1003669041113'; 
+// --- CONFIGURATION SÉCURISÉE ---
+const token = process.env.BOT_TOKEN; 
+const adminId = parseInt(process.env.ADMIN_ID); 
+const channelId = process.env.CHANNEL_ID; 
 const mainBotUser = 'Crypt0Alliance_bot'; 
 
 const bot = new TelegramBot(token, {polling: true});
 
 // --- CONTENU DU GUIDE ---
-const guideMessage = "📖 *GUIDE DE L'INVESTISSEUR ELITE*\n\nBienvenue sur le canal officiel. Suivez les étapes ci-dessous pour commencer à générer des profits avec nous.";
+const guideMessage = "📖 *GUIDE DE L'INVESTISSEUR ELITE*\n\nBienvenue sur le canal officiel. Suivez les étapes ci-dessous pour commencer à générer des profits.";
 
 const guideMenu = {
     parse_mode: 'Markdown',
@@ -43,10 +43,15 @@ bot.on('callback_query', (query) => {
 });
 
 // --- AUTOMATISATION ---
-// Le guide s'envoie automatiquement tous les jours à 10h00
+// Envoi automatique tous les jours à 10h00
 schedule.scheduleJob('0 10 * * *', () => {
     bot.sendMessage(channelId, guideMessage, guideMenu);
 });
+
+// Envoi immédiat au démarrage pour vérifier que ça marche
+bot.sendMessage(channelId, guideMessage, guideMenu)
+    .then(() => console.log("✅ Message de démarrage envoyé au canal !"))
+    .catch((err) => console.log("❌ Erreur au démarrage :", err.message));
 
 // --- COMMANDES ADMIN ---
 bot.onText(/\/post_guide/, (msg) => {
