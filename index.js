@@ -6,15 +6,17 @@ const channelId = process.env.CHANNEL_ID;
 const supportBotUser = 'Investcoelite_bot'; 
 const mainBotUser = 'Crypt0Alliance_bot'; 
 
-const bot = new TelegramBot(token, {polling: true});
+// --- SÉCURITÉ ANTI-CONFLIT ---
+const bot = new TelegramBot(token, {
+    polling: {
+        params: { timeout: 10 } // Réduit les risques de conflit 409
+    }
+});
 
 const line = "━━━━━━━━━━━━━━━━━━";
-
-// État du mode test (mémoire vive)
 let isTestMode = false;
 
-// --- DÉFINITION DES MENUS ---
-
+// --- MENUS ---
 const getUserMenu = () => ({
     inline_keyboard: [
         [{ text: "🏦 PROTOCOLE DE DÉPÔT", callback_data: 'depo' }],
@@ -34,118 +36,47 @@ const getAdminMenu = () => ({
     ]
 });
 
-const backButton = [[{ text: "⬅️ RETOUR", callback_data: 'main_menu' }]];
-
-// --- LOGIQUE /START ---
-
+// --- LOGIQUE ---
 bot.on('message', (msg) => {
     const chatId = msg.chat.id;
-    const text = msg.text;
+    if (!msg.text) return;
 
-    if (!text) return;
-
-    // Commande secrète pour quitter le mode test
-    if (text === '/admin' && chatId === adminId) {
+    if (msg.text === '/admin' && chatId === adminId) {
         isTestMode = false;
-        bot.sendMessage(chatId, "🛠 *MODE ADMIN RÉACTIVÉ*", { parse_mode: 'Markdown', reply_markup: getAdminMenu() });
-        return;
+        return bot.sendMessage(chatId, "🛠 *MODE ADMIN RÉACTIVÉ*", { parse_mode: 'Markdown', reply_markup: getAdminMenu() });
     }
 
-    if (text.startsWith('/start')) {
-        // Si c'est l'admin ET qu'il n'est pas en mode test
-        if (chatId === adminId && !isTestMode) {
-            bot.sendMessage(chatId, `👑 *TABLEAU DE BORD ADMIN*\n${line}\nMode Gestionnaire actif.`, {
-                parse_mode: 'Markdown', reply_markup: getAdminMenu()
-            });
-        } else {
-            // Mode Utilisateur (ou Admin en mode test)
-            bot.sendMessage(chatId, `💼 *VOTRE ESPACE INVESTISSEUR*\n${line}\nGérez vos fonds et accédez au pool collectif.`, {
-                parse_mode: 'Markdown', reply_markup: getUserMenu()
-            });
-        }
-        return;
-    }
-
-    // Support (uniquement si ce n'est pas l'admin en mode normal)
-    if (chatId !== adminId && msg.chat.type === 'private' && !text.startsWith('/')) {
-        bot.sendMessage(adminId, `🎫 *NOUVEAU TICKET*\n*De:* ${msg.from.first_name}\n*ID:* \`${chatId}\`\n\n*Message:* ${text}`, {
-            parse_mode: 'Markdown',
-            reply_markup: { inline_keyboard: [[{ text: "✍️ RÉPONDRE", callback_data: `reply_${chatId}` }]] }
-        });
-        bot.sendMessage(chatId, "✅ *Message transmis.* L'administration vous répondra ici.");
+    if (msg.text.startsWith('/start')) {
+        const menu = (chatId === adminId && !isTestMode) ? getAdminMenu() : getUserMenu();
+        const title = (chatId === adminId && !isTestMode) ? "👑 *TABLEAU DE BORD ADMIN*" : "💼 *VOTRE ESPACE INVESTISSEUR*";
+        bot.sendMessage(chatId, `${title}\n${line}`, { parse_mode: 'Markdown', reply_markup: menu });
     }
 });
-
-// --- GESTION DYNAMIQUE ---
 
 bot.on('callback_query', (query) => {
     const chatId = query.message.chat.id;
-    const messageId = query.message.message_id;
     const data = query.data;
 
-    let text = "";
-    let menu = { inline_keyboard: backButton };
-
-    // ACTIONS SPÉCIALES ADMIN
-    if (data === 'admin_toggle_test') {
-        isTestMode = true;
-        bot.editMessageText(`🕵️ *MODE TEST ACTIVÉ*\n${line}\nVous voyez maintenant ce que vos membres voient.\n\n_Tapez /admin pour revenir en gestionnaire._`, {
-            chat_id: chatId, message_id: messageId, parse_mode: 'Markdown', reply_markup: getUserMenu()
-        });
-        return;
-    }
-
     if (data === 'admin_send_app') {
-        bot.sendMessage(channelId, `⭐ *ACCÈS AU TERMINAL COLLECTIF* ⭐\n${line}\n\nPour les membres actifs, le terminal est synchronisé.\n\n🔗 *Statut : Session sécurisée.*`, {
+        bot.sendMessage(channelId, `⭐ *ACCÈS AU TERMINAL COLLECTIF* ⭐\n${line}\n\n🔗 *Statut : Session sécurisée.*`, {
             parse_mode: 'Markdown',
             reply_markup: { inline_keyboard: [[{ text: "💼 ENTRER DANS MON TERMINAL", url: `https://t.me/${mainBotUser}` }]] }
         });
-        bot.answerCallbackQuery(query.id, { text: "Annonce envoyée !" });
-        return;
     }
 
-    // RETOUR AU MENU
-    if (data === 'main_menu') {
-        if (chatId === adminId && !isTestMode) {
-            text = `👑 *TABLEAU DE BORD ADMIN*\n${line}\nQue voulez-vous gérer ?`;
-            menu = getAdminMenu();
-        } else {
-            text = `💼 *VOTRE ESPACE INVESTISSEUR*\n${line}\nGérez vos fonds et accédez au pool collectif.`;
-            menu = getUserMenu();
-        }
-    } 
-    // PAGES INFOS
-    else if (data === 'depo') text = "📥 *PROTOCOLE DE DÉPÔT*\n\nCopiez l'adresse ET le MÉMO unique. Sans mémo, les fonds ne sont pas validés.";
-    else if (data === 'buy') text = "💳 *ACQUISITION DE SOLANA*\n\nUtilisez Binance ou Coinbase.";
-    else if (data === 'earn') text = "📊 *DIVIDENDES & RETRAITS*\n\nProfits redistribués selon votre part. Traitement < 1h.";
-    else if (data === 'admin') text = "🏛 *ADMINISTRATION*\n\nÉcrivez votre message ci-dessous.";
-
-    if (data.startsWith('reply_')) {
-        bot.sendMessage(adminId, `Tapez : \`/rep ${data.split('_')[1]} message\``);
-        bot.answerCallbackQuery(query.id);
-        return;
+    if (data === 'admin_toggle_test') {
+        isTestMode = true;
+        bot.editMessageText(`🕵️ *MODE TEST ACTIVÉ*\n_Tapez /admin pour revenir._`, {
+            chat_id: chatId, message_id: query.message.message_id, parse_mode: 'Markdown', reply_markup: getUserMenu()
+        });
     }
 
-    bot.editMessageText(text, { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown', reply_markup: menu }).catch(e => {});
     bot.answerCallbackQuery(query.id);
 });
 
-// COMMANDES ADMIN RÉPONSE & PHOTO
-bot.onText(/\/rep (\d+) (.+)/, (msg, match) => {
-    if (msg.from.id === adminId) {
-        bot.sendMessage(match[1], `👨‍💻 *RÉPONSE ÉLITE :*\n\n${match[2]}`, { parse_mode: 'Markdown' });
-        bot.sendMessage(adminId, "✅ Envoyé.");
-    }
-});
+// Envoi manuel pour tester si la connexion est revenue
+bot.sendMessage(channelId, "🔄 *Mise à jour du système effectuée.*")
+    .then(() => console.log("✅ Connecté au canal !"))
+    .catch(e => console.log("❌ Toujours un bug de connexion :", e.message));
 
-bot.on('photo', (msg) => {
-    if (msg.from.id === adminId && msg.chat.type === 'private') {
-        bot.sendPhoto(channelId, msg.photo[msg.photo.length - 1].file_id, {
-            caption: `🔔 *ANNONCE COLLECTIVE*\n\n${msg.caption || ""}`,
-            parse_mode: 'Markdown',
-            reply_markup: { inline_keyboard: [[{ text: "🚀 OUVRIR LE TERMINAL", url: `https://t.me/${mainBotUser}` }]] }
-        });
-    }
-});
-
-console.log("🚀 Bot Elite v4 (Mode Test Intégré) prêt !");
+console.log("🚀 Bot Élite v4.1 (Anti-Bug) prêt !");
