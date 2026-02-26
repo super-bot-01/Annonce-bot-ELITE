@@ -1,63 +1,67 @@
 const TelegramBot = require('node-telegram-bot-api');
 const schedule = require('node-schedule');
 
-// --- CONFIGURATION VIA VARIABLES RAILWAY ---
+// --- RÉCUPÉRATION DES VARIABLES RAILWAY ---
 const token = process.env.BOT_TOKEN; 
 const adminId = parseInt(process.env.ADMIN_ID); 
 const channelId = process.env.CHANNEL_ID; 
-const mainBotUser = 'Crypt0Alliance_bot'; 
 
 const bot = new TelegramBot(token, {polling: true});
 
-// --- MESSAGE PRINCIPAL DU CANAL ---
-const guideMessage = "🛠 *SUPPORT TECHNIQUE ELITE*\n\nCliquez sur l'une des options ci-dessous pour obtenir une aide personnalisée immédiate.";
+// --- TEXTES DU GUIDE (Basés sur tes captures) ---
+const mainGuideText = "🛠 *SUPPORT TECHNIQUE ELITE*\n\nBienvenue. Cliquez sur une option pour obtenir une aide immédiate. La réponse s'affichera uniquement pour vous.";
 
-const guideMenu = {
+const guideButtons = {
     parse_mode: 'Markdown',
     reply_markup: {
         inline_keyboard: [
-            [{ text: "💳 Acheter du Solana (SOL)", callback_data: 'buy' }],
-            [{ text: "📥 Faire un Dépôt / MÉMO", callback_data: 'depo' }],
-            [{ text: "💰 Profits & Retraits", callback_data: 'earn' }],
-            [{ text: "🚀 OUVRIR LE TERMINAL", url: `https://t.me/${mainBotUser}` }]
+            [{ text: "💳 Comment acheter du SOL ?", callback_data: 'buy_sol' }],
+            [{ text: "📥 Guide Dépôt & MÉMO", callback_data: 'guide_memo' }],
+            [{ text: "💰 Profits & Retraits", callback_data: 'earn_withdraw' }],
+            [{ text: "🚀 OUVRIR L'APPLICATION", url: "https://t.me/Crypt0Alliance_bot" }]
         ]
     }
 };
 
-// --- RÉPONSES PRIVÉES (POP-UP) ---
+// --- LOGIQUE DES RÉPONSES PRIVÉES (Mode Alerte) ---
 bot.on('callback_query', (query) => {
-    let response = "";
+    let alertText = "";
 
     switch (query.data) {
-        case 'buy':
-            response = "💳 ACHAT SOLANA :\n\nUtilisez Binance ou Coinbase. Achetez vos SOL et transférez-les vers l'adresse indiquée dans le Terminal.";
+        case 'buy_sol':
+            alertText = "ACHAT SOLANA :\n1. Utilisez Binance ou Coinbase.\n2. Achetez des SOL et envoyez-les vers l'adresse du Terminal.";
             break;
-        case 'depo':
-            response = "📥 DÉPÔT & MÉMO :\n\nCopiez l'adresse ET le MÉMO généré. Le mémo est INDISPENSABLE pour que vos fonds arrivent sur votre solde.";
+        case 'guide_memo':
+            alertText = "IMPORTANT (Image 1936) :\nLors de votre dépôt, vous devez copier l'adresse ET le MÉMO UNIQUE (ex: 1265528388). Sans mémo, vos fonds ne seront pas crédités !";
             break;
-        case 'earn':
-            response = "💰 PROFITS :\n\nLes gains sont crédités automatiquement. Retraits disponibles 24h/24 via l'onglet 'Retrait' du bot.";
+        case 'earn_withdraw':
+            alertText = " PROFITS (Image 1939) :\nVos gains (ex: +120%) sont crédités sur votre solde total. Vous pouvez retirer via l'onglet 'Retrait' à tout moment.";
             break;
     }
 
-    // Réponse "Alerte" visible UNIQUEMENT par l'utilisateur qui clique
+    // Cette fonction affiche la réponse SEULEMENT à celui qui a cliqué
     bot.answerCallbackQuery(query.id, {
-        text: response,
-        show_alert: true
+        text: alertText,
+        show_alert: true 
     });
 });
 
-// --- GESTION DES ENVOIS ---
-// Auto à 10h
+// --- AUTOMATISATION ---
+// Publication automatique chaque matin à 10h
 schedule.scheduleJob('0 10 * * *', () => {
-    bot.sendMessage(channelId, guideMessage, guideMenu);
+    bot.sendMessage(channelId, mainGuideText, guideButtons);
 });
 
-// Envoi manuel par l'admin
+// Message de test au démarrage
+bot.sendMessage(channelId, "✅ Système Elite en ligne. Prêt à assister les investisseurs.", guideButtons)
+    .then(() => console.log("✅ Bot d'annonces Elite opérationnel !"))
+    .catch((err) => console.log("❌ Erreur de démarrage :", err.message));
+
+// Commande manuelle pour l'admin
 bot.onText(/\/post_guide/, (msg) => {
     if (msg.from.id === adminId) {
-        bot.sendMessage(channelId, guideMessage, guideMenu);
+        bot.sendMessage(channelId, mainGuideText, guideButtons);
     }
 });
 
-console.log("✅ Bot Elite (Mode Alertes Privées) lancé !");
+console.log("Démarrage du bot...");
