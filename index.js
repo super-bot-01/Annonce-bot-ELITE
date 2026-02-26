@@ -1,5 +1,6 @@
 const TelegramBot = require('node-telegram-bot-api');
 
+// --- CONFIGURATION ---
 const token = process.env.BOT_TOKEN; 
 const adminId = parseInt(process.env.ADMIN_ID); 
 const channelId = process.env.CHANNEL_ID; 
@@ -13,7 +14,6 @@ const gold_star = "⭐";
 const line = "━━━━━━━━━━━━━━━━━━";
 
 // --- 1. L'ANNONCE DE CONNEXION FLASH (Ta commande /app) ---
-// Pour ceux qui sont déjà membres du collectif
 bot.onText(/\/app/, (msg) => {
     if (msg.from.id === adminId) {
         const appText = `
@@ -38,7 +38,28 @@ Pour les membres ayant déjà configuré leur accès, le terminal est synchronis
     }
 });
 
-// --- 2. MESSAGE D'ACCUEIL AUTO (Dès que tu lances le bot) ---
+// --- 2. GESTION DES PHOTOS (Pour les annonces) ---
+// Quand l'admin envoie une photo avec une légende
+bot.on('photo', (msg) => {
+    if (msg.from.id === adminId && msg.chat.type === 'private') {
+        const photoId = msg.photo[msg.photo.length - 1].file_id; // Prend la meilleure qualité
+        const caption = msg.caption || ""; // Récupère le texte de la légende
+
+        // Construit l'annonce finale
+        const finalAnnonce = `🔔 *ANNONCE ELITE*\n\n${caption}`;
+
+        bot.sendPhoto(channelId, photoId, {
+            caption: finalAnnonce,
+            parse_mode: 'Markdown',
+            reply_markup: {
+                inline_keyboard: [[{ text: "🚀 OUVRIR LE TERMINAL", url: `https://t.me/${mainBotUser}` }]]
+            }
+        });
+        bot.sendMessage(adminId, "✅ Annonce avec photo publiée !");
+    }
+});
+
+// --- 3. MESSAGE D'ACCUEIL AUTO (Démarrage) ---
 const welcomeText = `
 🏛 *INVEST&CO : PLATEFORME PRIVÉE*
 ${line}
@@ -60,7 +81,7 @@ const welcomeButtons = {
     }
 };
 
-// --- 3. MENU DU BOT (Version Finance Privée) ---
+// --- 4. MENU DU BOT ---
 bot.on('message', (msg) => {
     const chatId = msg.chat.id;
     if (msg.text && msg.text.startsWith('/start')) {
@@ -84,7 +105,15 @@ Gérez vos fonds et contactez l'administration du collectif.
     }
 });
 
-// --- RÉPONSES AUX BOUTONS ---
+// Réponse Support
+bot.onText(/\/rep (\d+) (.+)/, (msg, match) => {
+    if (msg.from.id === adminId) {
+        bot.sendMessage(match[1], `👨‍💻 *RÉPONSE ÉLITE :*\n\n${match[2]}`, { parse_mode: 'Markdown' });
+        bot.sendMessage(adminId, "✅ Message envoyé.");
+    }
+});
+
+// --- 5. RÉPONSES AUX BOUTONS ---
 bot.on('callback_query', (query) => {
     const chatId = query.message.chat.id;
     let txt = "";
